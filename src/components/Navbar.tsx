@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Book, Users, Search } from 'lucide-react';
+import { Book, Users, Search, Award } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   return (
@@ -23,6 +23,10 @@ const Navbar: React.FC = () => {
               <Link to="/tribe" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:border-brand-500 hover:text-gray-900">
                 <Users className="h-4 w-4 mr-1" />
                 Tribe
+              </Link>
+              <Link to="/odyssey" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:border-brand-500 hover:text-gray-900">
+                <Award className="h-4 w-4 mr-1" />
+                Odyssey
               </Link>
             </div>
           </div>
