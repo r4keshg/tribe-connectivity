@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, AuthResponse } from '@supabase/supabase-js';
-import { supabase, UserProfile } from '@/lib/supabase';
+import { supabase, UserProfile, isSupabaseConfigured } from '@/lib/supabase';
 import { toast } from '@/hooks/use-toast';
 import { triggerLoginConfetti } from '@/utils/confetti';
 
@@ -9,6 +9,7 @@ type AuthContextType = {
   user: User | null;
   profile: UserProfile | null;
   isLoading: boolean;
+  isSupabaseReady: boolean;
   signUp: (email: string, password: string, username: string) => Promise<AuthResponse>;
   signIn: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
@@ -24,6 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setIsLoading(false);
+      return;
+    }
+
     // Check active sessions and set the user
     const session = supabase.auth.getSession();
     
@@ -51,12 +57,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Cleanup subscription on unmount
     return () => {
-      subscription.unsubscribe();
+      subscription?.unsubscribe?.();
     };
   }, []);
 
   // Fetch user profile from the database
   const fetchUserProfile = async (userId: string) => {
+    if (!isSupabaseConfigured) return null;
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -78,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Record user activity
   const recordActivity = async (activityType: 'login' | 'course_completion' | 'blog_creation' | 'clan_creation' | 'post_creation', activityData?: Record<string, any>) => {
-    if (!user) return;
+    if (!user || !isSupabaseConfigured) return;
     
     try {
       const { error } = await supabase
@@ -100,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Check if this is the first login of the day
   const checkIfFirstLoginOfDay = async (): Promise<boolean> => {
-    if (!user) return false;
+    if (!user || !isSupabaseConfigured) return false;
     
     try {
       // Get today's date at midnight
@@ -136,6 +144,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sign up new user
   const signUp = async (email: string, password: string, username: string) => {
+    if (!isSupabaseConfigured) {
+      toast({
+        title: "Authentication disabled",
+        description: "Authentication is currently disabled because Supabase is not configured.",
+        variant: "destructive",
+      });
+      throw new Error("Supabase not configured");
+    }
+    
     const response = await supabase.auth.signUp({ email, password });
     
     if (response.error) {
@@ -170,6 +187,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sign in existing user
   const signIn = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      toast({
+        title: "Authentication disabled",
+        description: "Authentication is currently disabled because Supabase is not configured.",
+        variant: "destructive",
+      });
+      throw new Error("Supabase not configured");
+    }
+    
     const response = await supabase.auth.signInWithPassword({ email, password });
     
     if (response.error) {
@@ -186,6 +212,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sign out user
   const signOut = async () => {
+    if (!isSupabaseConfigured) return;
+    
     await supabase.auth.signOut();
     toast({
       title: "Signed out",
@@ -195,7 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Update user profile
   const updateProfile = async (data: Partial<UserProfile>) => {
-    if (!user) return;
+    if (!user || !isSupabaseConfigured) return;
     
     try {
       const { error } = await supabase
@@ -230,6 +258,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     profile,
     isLoading,
+    isSupabaseReady: isSupabaseConfigured,
     signUp,
     signIn,
     signOut,
