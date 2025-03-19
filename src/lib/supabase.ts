@@ -1,0 +1,37 @@
+
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// User types
+export type UserProfile = {
+  id: string;
+  username: string;
+  email: string;
+  avatar_url?: string;
+  created_at: string;
+  updated_at: string;
+  last_active: string;
+  streak_days: number;
+  coins: number;
+  rank: string;
+  completed_courses: number;
+  created_blogs: number;
+  is_clan_admin: boolean;
+};
+
+// Activity type
+export type UserActivity = {
+  id: string;
+  user_id: string;
+  activity_type: 'login' | 'course_completion' | 'blog_creation' | 'clan_creation' | 'post_creation';
+  activity_date: string;
+  activity_data?: Record<string, any>;
+};

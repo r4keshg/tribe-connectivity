@@ -15,13 +15,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
 import AuthDialog from '@/components/AuthDialog';
 
 const Navbar: React.FC = () => {
   const { theme, setTheme } = useTheme();
+  const { user, profile, signOut } = useAuth();
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // This would come from auth context in a real app
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -31,13 +32,14 @@ const Navbar: React.FC = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
   
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-    setIsAuthDialogOpen(false);
+  const handleLogout = async () => {
+    await signOut();
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
+  // Get user initials for avatar fallback
+  const getUserInitials = () => {
+    if (!profile?.username) return 'U';
+    return profile.username.charAt(0).toUpperCase();
   };
 
   return (
@@ -86,18 +88,18 @@ const Navbar: React.FC = () => {
                   )}
                 </Button>
 
-                {isLoggedIn ? (
+                {user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="rounded-full h-8 w-8 p-0">
                         <Avatar>
-                          <AvatarImage src="/placeholder.svg" alt="User" />
-                          <AvatarFallback>U</AvatarFallback>
+                          <AvatarImage src={profile?.avatar_url || "/placeholder.svg"} alt={profile?.username || "User"} />
+                          <AvatarFallback>{getUserInitials()}</AvatarFallback>
                         </Avatar>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                      <DropdownMenuLabel>{profile?.username || 'My Account'}</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
                         <Link to="/profile" className="cursor-pointer">Profile</Link>
@@ -185,18 +187,18 @@ const Navbar: React.FC = () => {
               </Link>
             </div>
             <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
-              {isLoggedIn ? (
+              {user ? (
                 <>
                   <div className="flex items-center px-4">
                     <div className="flex-shrink-0">
                       <Avatar>
-                        <AvatarImage src="/placeholder.svg" alt="User" />
-                        <AvatarFallback>U</AvatarFallback>
+                        <AvatarImage src={profile?.avatar_url || "/placeholder.svg"} alt={profile?.username || "User"} />
+                        <AvatarFallback>{getUserInitials()}</AvatarFallback>
                       </Avatar>
                     </div>
                     <div className="ml-3">
-                      <div className="text-base font-medium text-gray-800 dark:text-white">User Name</div>
-                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">user@example.com</div>
+                      <div className="text-base font-medium text-gray-800 dark:text-white">{profile?.username || "User"}</div>
+                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{profile?.email || user.email}</div>
                     </div>
                   </div>
                   <div className="mt-3 space-y-1">
@@ -246,7 +248,6 @@ const Navbar: React.FC = () => {
       <AuthDialog 
         isOpen={isAuthDialogOpen} 
         onClose={() => setIsAuthDialogOpen(false)} 
-        onLogin={handleLogin}
       />
     </>
   );

@@ -7,22 +7,24 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Mail, Lock, User as UserIcon, Eye, EyeOff, Github, Twitter } from 'lucide-react';
-import JSConfetti from 'js-confetti';
+import { useAuth } from '@/hooks/use-auth';
 
 interface AuthDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: () => void;
 }
 
-const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => {
+const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
-  const handleSignIn = (e: React.FormEvent) => {
+  const { signIn, signUp } = useAuth();
+  
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Basic validation
@@ -35,31 +37,29 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => 
       return;
     }
     
-    // Here you would typically authenticate with a backend service
-    console.log("Signing in with:", { email, password });
-    
-    // Show success message
-    toast({
-      title: "Welcome back!",
-      description: "You have successfully logged in",
-    });
-    
-    // Trigger confetti for first login of the day
-    const jsConfetti = new JSConfetti();
-    jsConfetti.addConfetti({
-      emojis: ['✨', '🎓', '🚀', '🎉'],
-      confettiNumber: 100,
-    });
-    
-    // Call the login callback
-    onLogin();
-    
-    // Reset form
-    setEmail("");
-    setPassword("");
+    try {
+      setIsLoading(true);
+      await signIn(email, password);
+      
+      // Show success message
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully logged in",
+      });
+      
+      // Reset form and close dialog
+      setEmail("");
+      setPassword("");
+      onClose();
+    } catch (error) {
+      // Error handling is done in the auth hook
+      console.error("Sign in error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Basic validation
@@ -72,29 +72,27 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => 
       return;
     }
     
-    // Here you would typically register with a backend service
-    console.log("Signing up with:", { username, email, password });
-    
-    // Show success message
-    toast({
-      title: "Account created!",
-      description: "Welcome to vSkill. Your account has been created successfully",
-    });
-    
-    // Trigger confetti for new registration
-    const jsConfetti = new JSConfetti();
-    jsConfetti.addConfetti({
-      emojis: ['✨', '🎓', '🚀', '🎉'],
-      confettiNumber: 100,
-    });
-    
-    // Call the login callback
-    onLogin();
-    
-    // Reset form
-    setUsername("");
-    setEmail("");
-    setPassword("");
+    try {
+      setIsLoading(true);
+      await signUp(email, password, username);
+      
+      // Show success message
+      toast({
+        title: "Account created!",
+        description: "Welcome to vSkill. Your account has been created successfully",
+      });
+      
+      // Reset form and close dialog
+      setUsername("");
+      setEmail("");
+      setPassword("");
+      onClose();
+    } catch (error) {
+      // Error handling is done in the auth hook
+      console.error("Sign up error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -127,6 +125,7 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -148,6 +147,7 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
@@ -159,7 +159,9 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => 
                 </div>
               </div>
               
-              <Button type="submit" className="w-full">Sign In</Button>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Signing in..." : "Sign In"}
+              </Button>
             </form>
           </TabsContent>
           
@@ -176,6 +178,7 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => 
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -192,6 +195,7 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -208,6 +212,7 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
@@ -219,7 +224,9 @@ const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => 
                 </div>
               </div>
               
-              <Button type="submit" className="w-full">Sign Up</Button>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Creating account..." : "Sign Up"}
+              </Button>
             </form>
           </TabsContent>
         </Tabs>
