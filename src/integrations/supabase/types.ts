@@ -9,7 +9,78 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      activities: {
+        Row: {
+          activity_data: Json | null
+          activity_date: string | null
+          activity_type: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          activity_data?: Json | null
+          activity_date?: string | null
+          activity_type: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          activity_data?: Json | null
+          activity_date?: string | null
+          activity_type?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          coins: number | null
+          completed_courses: number | null
+          created_at: string | null
+          created_blogs: number | null
+          email: string | null
+          id: string
+          is_clan_admin: boolean | null
+          last_active: string | null
+          rank: string | null
+          streak_days: number | null
+          updated_at: string | null
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          coins?: number | null
+          completed_courses?: number | null
+          created_at?: string | null
+          created_blogs?: number | null
+          email?: string | null
+          id: string
+          is_clan_admin?: boolean | null
+          last_active?: string | null
+          rank?: string | null
+          streak_days?: number | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          coins?: number | null
+          completed_courses?: number | null
+          created_at?: string | null
+          created_blogs?: number | null
+          email?: string | null
+          id?: string
+          is_clan_admin?: boolean | null
+          last_active?: string | null
+          rank?: string | null
+          streak_days?: number | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

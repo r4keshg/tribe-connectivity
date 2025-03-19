@@ -18,7 +18,7 @@ export const triggerConfetti = (options?: {
   const jsConfetti = getConfettiInstance();
   
   const defaultEmojis = ['✨', '🎉', '🎓', '🚀'];
-  const confettiCount = options?.count || 30; // Reduced from 100 to 30
+  const confettiCount = options?.count || 15; // Reduced from 30 to 15
   
   jsConfetti.addConfetti({
     emojis: options?.emojis || defaultEmojis,
@@ -29,27 +29,27 @@ export const triggerConfetti = (options?: {
 export const triggerLoginConfetti = () => {
   triggerConfetti({
     emojis: ['✨', '👋', '🎉', '🚀'],
-    count: 25, // Reduced count for login
+    count: 10, // Reduced count for login
   });
 };
 
 export const triggerCourseCompletionConfetti = () => {
   triggerConfetti({
     emojis: ['🎓', '🏆', '🎉', '🥳', '👏'],
-    count: 40, // Reduced from 150 to 40
+    count: 20, // Reduced from 40 to 20
   });
 };
 
 export const triggerCreationConfetti = () => {
   triggerConfetti({
     emojis: ['✨', '📝', '🎨', '🚀', '💡'],
-    count: 25, // Reduced count
+    count: 10, // Reduced count
   });
 };
 
 export const triggerOdysseyConfetti = () => {
   triggerConfetti({
     emojis: ['🎯', '🧭', '🌟', '🚀', '🔥'],
-    count: 30, // Reduced count
+    count: 15, // Reduced count
   });
 };

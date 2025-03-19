@@ -1,24 +1,14 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://fsiipvxohbnxetnwesrh.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWlwdnhvaGJueGV0bndlc3JoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIzNjE0NzAsImV4cCI6MjA1NzkzNzQ3MH0.1l9P5826ope18LKzzCv-9YM1wxT1ic1Lz2c3xH7GAB4';
 
 // Flag to check if Supabase is properly configured
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+export const isSupabaseConfigured = true; // We now have configured Supabase
 
-if (!isSupabaseConfigured) {
-  console.warn('Supabase environment variables are missing. Some features will be disabled. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment.');
-}
-
-// Create a mock client if configuration is missing
-export const supabase = isSupabaseConfigured 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : createClient('https://placeholder-url.supabase.co', 'placeholder-key', {
-      auth: {
-        persistSession: false,
-      },
-    });
+// Create client using our project values
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // User types
 export type UserProfile = {
