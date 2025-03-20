@@ -35,3 +35,95 @@ export type UserActivity = {
   activity_date: string;
   activity_data?: Record<string, any>;
 };
+
+// Add sample course data for initial display
+export const sampleCourses = [
+  {
+    id: "sample-course-1",
+    title: "Introduction to React",
+    description: "Learn the fundamentals of React, including components, state, props, and hooks.",
+    instructor: {
+      id: "instructor-1",
+      name: "Alex Johnson"
+    },
+    coverImage: "/placeholder.svg",
+    rating: 4.8,
+    studentsCount: 342,
+    duration: "5 hours",
+    level: "Beginner",
+    category: "Web Development",
+    tags: ["React", "JavaScript", "Frontend"],
+    isFeatured: true,
+    isNew: true,
+    modules: [
+      {
+        id: "module-1-1",
+        title: "Getting Started with React",
+        type: "video",
+        content: "https://www.youtube.com/embed/SqcY0GlETPk",
+        duration: "45 min",
+        isCompleted: false
+      },
+      {
+        id: "module-1-2",
+        title: "Components and Props",
+        type: "text",
+        content: "React components are the building blocks of React applications. They allow you to split the UI into independent, reusable pieces. Components accept inputs called props and return React elements describing what should appear on the screen.",
+        duration: "30 min",
+        isCompleted: false
+      },
+      {
+        id: "module-1-3",
+        title: "State and Lifecycle",
+        type: "video",
+        content: "https://www.youtube.com/embed/4pO-HcG2igk",
+        duration: "50 min",
+        isCompleted: false
+      }
+    ]
+  },
+  {
+    id: "sample-course-2",
+    title: "Data Science Fundamentals",
+    description: "A comprehensive introduction to data science, covering statistics, data visualization, and machine learning basics.",
+    instructor: {
+      id: "instructor-2",
+      name: "Sarah Chen"
+    },
+    coverImage: "/placeholder.svg",
+    rating: 4.6,
+    studentsCount: 215,
+    duration: "8 hours",
+    level: "Intermediate",
+    category: "Data Science",
+    tags: ["Python", "Statistics", "Machine Learning"],
+    isFeatured: false,
+    isNew: true,
+    modules: [
+      {
+        id: "module-2-1",
+        title: "Introduction to Data Analysis",
+        type: "text",
+        content: "Data analysis is the process of inspecting, cleansing, transforming, and modeling data with the goal of discovering useful information, informing conclusions, and supporting decision-making.",
+        duration: "40 min",
+        isCompleted: false
+      },
+      {
+        id: "module-2-2",
+        title: "Statistical Methods",
+        type: "video",
+        content: "https://www.youtube.com/embed/VPZD_aij8H0",
+        duration: "60 min",
+        isCompleted: false
+      },
+      {
+        id: "module-2-3",
+        title: "Introduction to Machine Learning",
+        type: "text",
+        content: "Machine learning is a subset of artificial intelligence that provides systems the ability to automatically learn and improve from experience without being explicitly programmed.",
+        duration: "45 min",
+        isCompleted: false
+      }
+    ]
+  }
+];

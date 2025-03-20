@@ -1,59 +1,60 @@
 
 import JSConfetti from 'js-confetti';
 
-// Create a singleton instance
-let confettiInstance: JSConfetti | null = null;
+// Create a reusable confetti instance
+let jsConfetti: JSConfetti | null = null;
 
-const getConfettiInstance = (): JSConfetti => {
-  if (!confettiInstance) {
-    confettiInstance = new JSConfetti();
+// Initialize confetti on first use
+const getConfetti = () => {
+  if (!jsConfetti) {
+    jsConfetti = new JSConfetti();
   }
-  return confettiInstance;
+  return jsConfetti;
 };
 
-export const triggerConfetti = (options?: {
-  emojis?: string[];
-  count?: number;
-}) => {
-  const jsConfetti = getConfettiInstance();
-  
-  const defaultEmojis = ['✨', '🎉', '🎓', '🚀'];
-  const confettiCount = options?.count || 8; // Reduced from 15 to 8 for tiny pop
-  
-  jsConfetti.addConfetti({
-    emojis: options?.emojis || defaultEmojis,
-    confettiNumber: confettiCount,
-    // Configuration for a pop effect instead of rain
-    spread: 35,
-    gravity: 1.5,
-    dragFriction: 0.12
-  });
-};
-
-export const triggerLoginConfetti = () => {
-  triggerConfetti({
-    emojis: ['✨', '👋', '🎉', '🚀'],
-    count: 5, // Reduced count for login
-  });
-};
-
+// Trigger confetti for course completion
 export const triggerCourseCompletionConfetti = () => {
-  triggerConfetti({
-    emojis: ['🎓', '🏆', '🎉', '🥳', '👏'],
-    count: 10, // Reduced count for completion
+  const confetti = getConfetti();
+  
+  // Create an explosion of confetti
+  confetti.addConfetti({
+    confettiColors: [
+      '#FF5757', '#FFC857', '#70D6FF', '#5CE1E6', '#FF9E7A', '#A3E048'
+    ],
+    confettiRadius: 6,
+    confettiNumber: 200
   });
+  
+  // Follow up with some emojis
+  setTimeout(() => {
+    confetti.addConfetti({
+      emojis: ['🎓', '🏆', '🥇', '⭐', '✅'],
+      emojiSize: 50,
+      confettiNumber: 30
+    });
+  }, 800);
 };
 
+// Trigger confetti for clan or blog creation
 export const triggerCreationConfetti = () => {
-  triggerConfetti({
-    emojis: ['✨', '📝', '🎨', '🚀', '💡'],
-    count: 5, // Reduced count
+  const confetti = getConfetti();
+  
+  confetti.addConfetti({
+    confettiColors: [
+      '#22c55e', '#7c3aed', '#06b6d4', '#F97316', '#8b5cf6'
+    ],
+    confettiRadius: 5,
+    confettiNumber: 100
   });
 };
 
-export const triggerOdysseyConfetti = () => {
-  triggerConfetti({
-    emojis: ['🎯', '🧭', '🌟', '🚀', '🔥'],
-    count: 7, // Reduced count
+// Trigger confetti for achievements
+export const triggerAchievementConfetti = () => {
+  const confetti = getConfetti();
+  
+  confetti.addConfetti({
+    emojis: ['🎉', '🎊', '🥳', '👏', '🔥'],
+    emojiSize: 40, 
+    confettiNumber: 40
   });
 };

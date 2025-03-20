@@ -8,7 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash, Youtube, FileText, Check } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { triggerCreationConfetti } from '@/utils/confetti';
 
@@ -91,17 +91,40 @@ const CourseForm: React.FC<CourseFormProps> = ({ onSuccess }) => {
   const validateYoutubeUrl = (url: string): string => {
     if (!url.trim()) return '';
     
-    // Extract video ID from various YouTube URL formats
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
+    // Handle various YouTube URL formats
+    let videoId = '';
     
-    if (match && match[2].length === 11) {
-      // Return the proper embed URL
-      return `https://www.youtube.com/embed/${match[2]}`;
+    // Format 1: youtube.com/watch?v=VIDEO_ID
+    const regExp1 = /^.*youtube\.com\/watch\?v=([^&]+).*/;
+    // Format 2: youtu.be/VIDEO_ID
+    const regExp2 = /^.*youtu\.be\/([^?]+).*/;
+    // Format 3: youtube.com/embed/VIDEO_ID
+    const regExp3 = /^.*youtube\.com\/embed\/([^?]+).*/;
+    
+    let match = url.match(regExp1);
+    
+    if (match && match[1]) {
+      videoId = match[1];
+    } else {
+      match = url.match(regExp2);
+      if (match && match[1]) {
+        videoId = match[1];
+      } else {
+        match = url.match(regExp3);
+        if (match && match[1]) {
+          videoId = match[1];
+        }
+      }
     }
     
-    // If URL doesn't match YouTube format, return as is (will be validated on the frontend)
-    return url;
+    // If we found a valid video ID, return the proper embed URL
+    if (videoId) {
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    
+    // If it's not recognized as a YouTube URL, return empty
+    // This allows the form validation to catch it
+    return '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -153,6 +176,18 @@ const CourseForm: React.FC<CourseFormProps> = ({ onSuccess }) => {
       return;
     }
     
+    // Validate YouTube URLs
+    for (const module of modules) {
+      if (module.youtubeUrl.trim() && !validateYoutubeUrl(module.youtubeUrl)) {
+        toast({
+          title: "Error",
+          description: `Invalid YouTube URL in module "${module.title}"`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -196,18 +231,18 @@ const CourseForm: React.FC<CourseFormProps> = ({ onSuccess }) => {
         
         // Insert quiz questions for this module
         if (module.quizQuestions.length > 0) {
-          const quizQuestionsData = module.quizQuestions.map(q => ({
-            module_id: moduleId,
-            question: q.question,
-            options: JSON.stringify(q.options),
-            correct_answer: q.correctAnswer
-          }));
-          
-          const { error: quizError } = await supabase
-            .from('module_quiz_questions')
-            .insert(quizQuestionsData);
-          
-          if (quizError) throw quizError;
+          for (const question of module.quizQuestions) {
+            const { error: quizError } = await supabase
+              .from('module_quiz_questions')
+              .insert({
+                module_id: moduleId,
+                question: question.question,
+                options: question.options,
+                correct_answer: question.correctAnswer
+              });
+            
+            if (quizError) throw quizError;
+          }
         }
       }
       
@@ -253,6 +288,27 @@ const CourseForm: React.FC<CourseFormProps> = ({ onSuccess }) => {
       e.preventDefault();
       handleAddTag();
     }
+  };
+
+  // Preview YouTube video URLs
+  const renderYouTubePreview = (url: string) => {
+    const embedUrl = validateYoutubeUrl(url);
+    if (!embedUrl) return null;
+    
+    return (
+      <div className="mt-2">
+        <p className="text-xs text-gray-500 mb-1">Preview:</p>
+        <div className="aspect-video w-full max-w-[300px] border border-gray-200 rounded">
+          <iframe
+            src={embedUrl}
+            title="YouTube video preview"
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          ></iframe>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -382,6 +438,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ onSuccess }) => {
               <p className="text-xs text-gray-500">
                 Add a YouTube video to complement your module content
               </p>
+              {module.youtubeUrl && renderYouTubePreview(module.youtubeUrl)}
             </div>
             
             {/* Quiz Section */}

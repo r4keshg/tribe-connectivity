@@ -14,9 +14,10 @@ import QuoteDisplay from "@/components/QuoteDisplay";
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
 import CourseForm from "@/components/CourseForm";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { triggerCourseCompletionConfetti } from '@/utils/confetti';
+import { sampleCourses } from "@/lib/supabase";
 
 interface CourseModule {
   id: string;
@@ -78,55 +79,61 @@ const ArenaPage: React.FC = () => {
   const fetchCourses = async () => {
     setLoading(true);
     try {
-      // Fetch courses with creator information
+      // Start with sample courses
+      let coursesData: CourseItem[] = [...sampleCourses];
+      
+      // Fetch courses from Supabase
       const { data, error } = await supabase
         .from('courses')
         .select(`
-          *,
-          profiles:created_by (
-            id,
-            username
-          )
+          id,
+          title,
+          description,
+          tags,
+          created_by,
+          created_at
         `)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      if (data) {
-        // Process the raw data into our CourseItem format
-        const processedCourses: CourseItem[] = await Promise.all(data.map(async (course) => {
-          // For each course, fetch its modules
-          const { data: moduleData, error: moduleError } = await supabase
+      // For each course, get the creator's username from profiles
+      if (data && data.length > 0) {
+        const processedCourses = await Promise.all(data.map(async (course) => {
+          // Fetch user profile
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', course.created_by)
+            .single();
+          
+          // Fetch modules for this course
+          const { data: modulesData } = await supabase
             .from('course_modules')
             .select('*')
             .eq('course_id', course.id)
             .order('position', { ascending: true });
           
-          if (moduleError) throw moduleError;
-          
-          // Count users who have enrolled (any progress record exists)
-          const { count, error: countError } = await supabase
+          // Count enrolled students
+          const { count } = await supabase
             .from('user_course_progress')
             .select('user_id', { count: 'exact', head: true })
-            .eq('module_id', moduleData && moduleData.length > 0 ? moduleData[0].id : '');
-          
-          if (countError) console.error('Error counting students:', countError);
+            .eq('module_id', modulesData && modulesData.length > 0 ? modulesData[0].id : '');
           
           // Process modules
-          const processedModules = moduleData ? moduleData.map(module => {
+          const modules = modulesData ? modulesData.map(module => {
             let moduleType: 'video' | 'text' | 'quiz' = 'text';
             
             if (module.youtube_url) {
               moduleType = 'video';
             }
             
-            // Determine module duration based on content length
+            // Calculate duration
             const getDuration = () => {
-              if (moduleType === 'video') return '15 min'; // Could be estimated based on video
+              if (moduleType === 'video') return '15 min';
               if (moduleType === 'quiz') return '5 min';
-              // Text content - rough estimate based on reading time
               const words = module.content?.split(' ').length || 0;
-              const minutes = Math.max(1, Math.ceil(words / 200)); // Assume 200 words per minute reading
+              const minutes = Math.max(1, Math.ceil(words / 200));
               return `${minutes} min`;
             };
             
@@ -136,17 +143,17 @@ const ArenaPage: React.FC = () => {
               type: moduleType,
               content: moduleType === 'video' ? module.youtube_url : module.content,
               duration: getDuration(),
-              isCompleted: false // Will be updated after fetching user progress
+              isCompleted: false
             };
           }) : [];
           
-          // Calculate course duration based on module durations
-          const totalMinutes = processedModules.reduce((total, module) => {
+          // Calculate course duration
+          const totalMinutes = modules.reduce((total, module) => {
             const minutes = parseInt(module.duration.split(' ')[0]) || 0;
             return total + minutes;
           }, 0);
           
-          // Format hours and minutes
+          // Format duration
           const formatDuration = (totalMinutes: number) => {
             if (totalMinutes < 60) return `${totalMinutes} minutes`;
             const hours = Math.floor(totalMinutes / 60);
@@ -155,37 +162,42 @@ const ArenaPage: React.FC = () => {
             return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} min`;
           };
           
-          // Format the course data
+          // Return formatted course
           return {
             id: course.id,
             title: course.title,
             description: course.description,
             instructor: {
-              id: course.profiles.id,
-              name: course.profiles.username || 'Anonymous'
+              id: course.created_by,
+              name: profileData?.username || 'Anonymous'
             },
-            coverImage: '/placeholder.svg', // Default placeholder
-            rating: 4.5, // Default rating
+            coverImage: '/placeholder.svg',
+            rating: 4.5,
             studentsCount: count || 0,
             duration: formatDuration(totalMinutes),
-            level: 'All Levels', // Default level
+            level: 'All Levels',
             category: course.tags?.[0] || 'General',
             tags: course.tags || [],
-            isFeatured: false, // Could be determined by some criteria
-            isNew: new Date(course.created_at).getTime() > Date.now() - (7 * 24 * 60 * 60 * 1000), // New if created within last 7 days
-            modules: processedModules,
+            isFeatured: false,
+            isNew: new Date(course.created_at).getTime() > Date.now() - (7 * 24 * 60 * 60 * 1000),
+            modules: modules,
             created_at: course.created_at
           };
         }));
         
-        setCourses(processedCourses);
+        // Add the processed courses to our array
+        coursesData = [...coursesData, ...processedCourses];
       }
+      
+      setCourses(coursesData);
     } catch (error) {
       console.error('Error fetching courses:', error);
+      // Even if there's an error, still set the sample courses
+      setCourses(sampleCourses);
       toast({
-        title: "Error",
-        description: "Failed to load courses",
-        variant: "destructive",
+        title: "Notice",
+        description: "Using sample courses due to database connection issue",
+        variant: "default",
       });
     } finally {
       setLoading(false);
@@ -266,30 +278,64 @@ const ArenaPage: React.FC = () => {
   
   const fetchModuleComments = async (moduleId: string) => {
     try {
+      // For sample courses, use mock comments
+      if (moduleId.startsWith('module-')) {
+        const mockComments = [
+          {
+            id: `comment-${Math.random().toString(36).substr(2, 9)}`,
+            author: 'Alex Johnson',
+            authorId: 'instructor-1',
+            content: 'Great module! Let me know if you have any questions.',
+            timeAgo: '2 days ago',
+            likes: 5
+          },
+          {
+            id: `comment-${Math.random().toString(36).substr(2, 9)}`,
+            author: 'Maria Garcia',
+            authorId: 'user-2',
+            content: 'This was very helpful, thanks!',
+            timeAgo: '1 day ago',
+            likes: 2
+          }
+        ];
+        
+        setModuleComments(prev => ({
+          ...prev,
+          [moduleId]: mockComments
+        }));
+        return;
+      }
+      
+      // For real courses, fetch from database
       const { data, error } = await supabase
         .from('course_comments')
         .select(`
           id,
           content,
           created_at,
-          profiles:user_id (
-            id,
-            username
-          )
+          user_id
         `)
         .eq('module_id', moduleId)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      // Format comments for display
-      const formattedComments = data.map(comment => ({
-        id: comment.id,
-        author: comment.profiles.username || 'Anonymous',
-        authorId: comment.profiles.id,
-        content: comment.content,
-        timeAgo: formatTimeAgo(new Date(comment.created_at)),
-        likes: 0 // This could be enhanced with a likes system
+      // For each comment, get the user profile
+      const formattedComments = await Promise.all(data.map(async (comment) => {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', comment.user_id)
+          .single();
+        
+        return {
+          id: comment.id,
+          author: profileData?.username || 'Anonymous',
+          authorId: comment.user_id,
+          content: comment.content,
+          timeAgo: formatTimeAgo(new Date(comment.created_at)),
+          likes: 0
+        };
       }));
       
       // Update the comments state
@@ -300,6 +346,11 @@ const ArenaPage: React.FC = () => {
       
     } catch (error) {
       console.error('Error fetching module comments:', error);
+      // Provide fallback comments if needed
+      setModuleComments(prev => ({
+        ...prev,
+        [moduleId]: []
+      }));
     }
   };
   
@@ -328,6 +379,31 @@ const ArenaPage: React.FC = () => {
     if (!selectedCourse || !user) return;
     
     try {
+      // Skip for sample courses
+      if (moduleId.startsWith('module-')) {
+        // Just update local state for sample courses
+        const updatedCourse = {
+          ...selectedCourse,
+          modules: selectedCourse.modules?.map(module => 
+            module.id === moduleId ? { ...module, isCompleted: true } : module
+          )
+        };
+        
+        setSelectedCourse(updatedCourse);
+        
+        // Check if all modules are completed
+        const allCompleted = updatedCourse.modules?.every(module => module.isCompleted);
+        if (allCompleted) {
+          triggerCourseCompletionConfetti();
+          toast({
+            title: "🎉 Course Completed!",
+            description: `Congratulations! You've completed "${selectedCourse.title}"`,
+          });
+        }
+        return;
+      }
+      
+      // For real courses, update the database
       // First check if there's an existing progress record
       const { data: existingProgress, error: checkError } = await supabase
         .from('user_course_progress')
@@ -380,12 +456,9 @@ const ArenaPage: React.FC = () => {
         triggerCourseCompletionConfetti();
         
         // Update user profile stats
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            completed_courses: supabase.sql`completed_courses + 1`
-          })
-          .eq('id', user.id);
+        const { error: profileError } = await supabase.rpc('increment_completed_courses', {
+          user_id: user.id
+        });
         
         if (profileError) {
           console.error('Error updating profile stats:', profileError);
@@ -410,6 +483,27 @@ const ArenaPage: React.FC = () => {
     if (!commentText.trim() || !user || !activeModuleId) return;
     
     try {
+      // Handle sample courses
+      if (activeModuleId.startsWith('module-')) {
+        const newComment: CourseComment = {
+          id: `comment-${Math.random().toString(36).substr(2, 9)}`,
+          author: user.email?.split('@')[0] || 'You',
+          authorId: user.id,
+          content: commentText.trim(),
+          timeAgo: 'Just now',
+          likes: 0
+        };
+        
+        setModuleComments(prev => ({
+          ...prev,
+          [activeModuleId]: [newComment, ...(prev[activeModuleId] || [])]
+        }));
+        
+        setCommentText('');
+        return;
+      }
+      
+      // Add comment to database for real courses
       const { data, error } = await supabase
         .from('course_comments')
         .insert({
@@ -417,24 +511,23 @@ const ArenaPage: React.FC = () => {
           user_id: user.id,
           content: commentText.trim()
         })
-        .select(`
-          id,
-          content,
-          created_at,
-          profiles:user_id (
-            id,
-            username
-          )
-        `);
+        .select();
       
       if (error) throw error;
+      
+      // Get user profile for the comment
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user.id)
+        .single();
       
       // Format the new comment
       const newComment: CourseComment = {
         id: data[0].id,
-        author: data[0].profiles.username || 'You',
-        authorId: data[0].profiles.id,
-        content: data[0].content,
+        author: profileData?.username || 'You',
+        authorId: user.id,
+        content: commentText.trim(),
         timeAgo: 'Just now',
         likes: 0
       };
@@ -583,8 +676,15 @@ const ArenaPage: React.FC = () => {
                       className="w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
-                      onEnded={() => handleModuleCompletion(module.id)}
                     ></iframe>
+                    {!module.isCompleted && (
+                      <Button 
+                        className="mt-4" 
+                        onClick={() => handleModuleCompletion(module.id)}
+                      >
+                        Mark as Completed
+                      </Button>
+                    )}
                   </div>
                 )}
                 
