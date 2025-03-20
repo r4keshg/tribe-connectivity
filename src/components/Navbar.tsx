@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { 
-  Book, Users, Search, Award, User, Moon, Sun, Menu, X, ChevronDown 
+  Book, Users, Search, Award, User, Moon, Sun, Menu, X, ChevronDown, GraduationCap
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -65,6 +65,10 @@ const Navbar: React.FC = () => {
                 <Link to="/odyssey" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 dark:text-gray-400 border-b-2 border-transparent hover:border-brand-500 hover:text-gray-900 dark:hover:text-white">
                   <Award className="h-4 w-4 mr-1" />
                   Odyssey
+                </Link>
+                <Link to="/arena" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 dark:text-gray-400 border-b-2 border-transparent hover:border-brand-500 hover:text-gray-900 dark:hover:text-white">
+                  <GraduationCap className="h-4 w-4 mr-1" />
+                  Arena
                 </Link>
               </div>
             </div>
@@ -177,6 +181,13 @@ const Navbar: React.FC = () => {
                 onClick={toggleMenu}
               >
                 Odyssey
+              </Link>
+              <Link 
+                to="/arena" 
+                className="block pl-3 pr-4 py-2 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                onClick={toggleMenu}
+              >
+                Arena
               </Link>
               <Link 
                 to="/blog" 

@@ -12,6 +12,7 @@ import TribePage from "./pages/TribePage";
 import ClanPage from "./pages/ClanPage";
 import PostPage from "./pages/PostPage";
 import OdysseyPage from "./pages/OdysseyPage";
+import ArenaPage from "./pages/ArenaPage";
 import BlogPage from "./pages/BlogPage";
 import BlogPostPage from "./pages/BlogPostPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/clan/:clanId" element={<Layout><ClanPage /></Layout>} />
               <Route path="/post/:postId" element={<Layout><PostPage /></Layout>} />
               <Route path="/odyssey" element={<Layout><OdysseyPage /></Layout>} />
+              <Route path="/arena" element={<Layout><ArenaPage /></Layout>} />
               <Route path="/blog" element={<Layout><BlogPage /></Layout>} />
               <Route path="/blog/:postId" element={<Layout><BlogPostPage /></Layout>} />
               <Route path="/profile" element={<Layout><ProfilePage /></Layout>} />
