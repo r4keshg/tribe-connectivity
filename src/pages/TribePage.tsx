@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +8,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { 
   Search, Users, TrendingUp, Clock, Award, PlusCircle, 
-  MessageSquare, ThumbsUp, BookmarkPlus, Shield, Hash 
+  MessageSquare, ThumbsUp, BookmarkPlus, Shield, Hash, Tag 
 } from 'lucide-react';
 import CreatePostDialog from '@/components/CreatePostDialog';
 import CreateClanDialog from '@/components/CreateClanDialog';
 import PostCard from '@/components/PostCard';
 import ClanCard from '@/components/ClanCard';
+import { useToast } from '@/hooks/use-toast';
 
 // Mock data
 const mockPosts = [
@@ -86,9 +87,58 @@ const mockClans = [
 ];
 
 const TribePage = () => {
+  const { toast } = useToast();
   const [searchValue, setSearchValue] = useState('');
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [isCreateClanOpen, setIsCreateClanOpen] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  
+  // Extract all unique tags from posts and clans
+  useEffect(() => {
+    const postTags = mockPosts.flatMap(post => post.tags);
+    const clanTags = mockClans.flatMap(clan => clan.tags);
+    const allTags = [...new Set([...postTags, ...clanTags])];
+    setAvailableTags(allTags);
+  }, []);
+  
+  // Filter posts based on search and tags
+  const filteredPosts = mockPosts.filter(post => {
+    const matchesSearch = post.title.toLowerCase().includes(searchValue.toLowerCase()) || 
+                          post.content.toLowerCase().includes(searchValue.toLowerCase());
+                          
+    const matchesTags = selectedTags.length === 0 || 
+                        selectedTags.some(tag => post.tags.includes(tag));
+                        
+    return matchesSearch && matchesTags;
+  });
+  
+  // Toggle tag selection
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag) 
+        : [...prev, tag]
+    );
+  };
+  
+  // Handle post creation success
+  const handlePostCreated = () => {
+    setIsCreatePostOpen(false);
+    toast({
+      title: "Post created!",
+      description: "Your post has been published to the tribe.",
+    });
+  };
+  
+  // Handle clan creation success
+  const handleClanCreated = () => {
+    setIsCreateClanOpen(false);
+    toast({
+      title: "Clan created!",
+      description: "Your new clan is now available in the tribe.",
+    });
+  };
   
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -102,7 +152,7 @@ const TribePage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Sidebar */}
         <div className="lg:col-span-3">
-          <div className="sticky top-20">
+          <div className="sticky top-20 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Community</CardTitle>
@@ -125,6 +175,12 @@ const TribePage = () => {
                 <Button variant="outline" className="w-full justify-start">
                   <Award className="mr-2 h-4 w-4" />
                   Featured
+                </Button>
+                <Button variant="outline" className="w-full justify-start" asChild>
+                  <Link to="/blog">
+                    <BookmarkPlus className="mr-2 h-4 w-4" />
+                    Blog Posts
+                  </Link>
                 </Button>
               </CardContent>
               <CardHeader className="pb-2">
@@ -149,6 +205,40 @@ const TribePage = () => {
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Create New Clan
                 </Button>
+              </CardContent>
+            </Card>
+            
+            {/* Tags filter card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Tag className="mr-2 h-4 w-4" />
+                  Filter by Tags
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map(tag => (
+                    <Badge 
+                      key={tag} 
+                      variant={selectedTags.includes(tag) ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+                {selectedTags.length > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="mt-4 text-xs"
+                    onClick={() => setSelectedTags([])}
+                  >
+                    Clear filters
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -183,9 +273,18 @@ const TribePage = () => {
             </TabsList>
             
             <TabsContent value="all-posts" className="space-y-6">
-              {mockPosts.map(post => (
-                <PostCard key={post.id} post={post} />
-              ))}
+              {filteredPosts.length > 0 ? (
+                filteredPosts.map(post => (
+                  <PostCard key={post.id} post={post} />
+                ))
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-gray-500 mb-4">No posts found matching your criteria</p>
+                  <Button onClick={() => {setSearchValue(''); setSelectedTags([]);}}>
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
             </TabsContent>
             
             <TabsContent value="explore-clans" className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -208,13 +307,17 @@ const TribePage = () => {
       {/* Dialogs */}
       <CreatePostDialog 
         isOpen={isCreatePostOpen} 
-        onClose={() => setIsCreatePostOpen(false)} 
+        onClose={() => setIsCreatePostOpen(false)}
+        onSuccess={handlePostCreated}
         clans={mockClans}
+        requiredTags={true}
       />
       
       <CreateClanDialog
         isOpen={isCreateClanOpen}
         onClose={() => setIsCreateClanOpen(false)}
+        onSuccess={handleClanCreated}
+        requiredTags={true}
       />
     </div>
   );

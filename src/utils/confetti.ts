@@ -23,8 +23,7 @@ export const triggerConfetti = (options?: {
   jsConfetti.addConfetti({
     emojis: options?.emojis || defaultEmojis,
     confettiNumber: confettiCount,
-    // Configuration for a pop effect
-    initialVelocityY: 10,
+    // Configuration for a pop effect instead of rain
     spread: 35,
     gravity: 1.5,
     dragFriction: 0.12
