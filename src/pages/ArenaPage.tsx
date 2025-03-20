@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,28 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Filter, Trophy, CheckCircle, Clock, Star, GraduationCap, Plus, Video, FileText, List } from 'lucide-react';
+import { Search, Filter, Trophy, CheckCircle, Clock, Star, GraduationCap, Plus, Video, FileText, List, Send } from 'lucide-react';
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import QuoteDisplay from "@/components/QuoteDisplay";
 import { useAuth } from '@/hooks/use-auth';
 import { useNavigate } from 'react-router-dom';
 import CourseForm from "@/components/CourseForm";
-
-interface CourseItem {
-  id: string;
-  title: string;
-  description: string;
-  instructor: string;
-  coverImage: string;
-  rating: number;
-  studentsCount: number;
-  duration: string;
-  level: 'Beginner' | 'Intermediate' | 'Advanced' | 'All Levels';
-  category: string;
-  tags: string[];
-  isFeatured?: boolean;
-  isNew?: boolean;
-  modules?: CourseModule[];
-}
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { triggerCourseCompletionConfetti } from '@/utils/confetti';
 
 interface CourseModule {
   id: string;
@@ -38,6 +27,36 @@ interface CourseModule {
   isCompleted?: boolean;
 }
 
+interface CourseComment {
+  id: string;
+  author: string;
+  authorId: string;
+  content: string;
+  timeAgo: string;
+  likes: number;
+}
+
+interface CourseItem {
+  id: string;
+  title: string;
+  description: string;
+  instructor: {
+    id: string;
+    name: string;
+  };
+  coverImage: string;
+  rating: number;
+  studentsCount: number;
+  duration: string;
+  level: 'Beginner' | 'Intermediate' | 'Advanced' | 'All Levels';
+  category: string;
+  tags: string[];
+  isFeatured?: boolean;
+  isNew?: boolean;
+  modules?: CourseModule[];
+  created_at?: string;
+}
+
 const ArenaPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -46,160 +65,135 @@ const ArenaPage: React.FC = () => {
   const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null);
   const [isViewingCourse, setIsViewingCourse] = useState(false);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [courses, setCourses] = useState<CourseItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [moduleComments, setModuleComments] = useState<Record<string, CourseComment[]>>({});
+  const [commentText, setCommentText] = useState('');
+  const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   
-  // Sample courses data - in a real app, you would fetch this from your database
-  const sampleCourses: CourseItem[] = [
-    {
-      id: '1',
-      title: 'Introduction to Web Development',
-      description: 'Learn the basics of HTML, CSS, and JavaScript to create your first website',
-      instructor: 'Sarah Johnson',
-      coverImage: '/placeholder.svg',
-      rating: 4.8,
-      studentsCount: 3420,
-      duration: '12 hours',
-      level: 'Beginner',
-      category: 'Web Development',
-      tags: ['HTML', 'CSS', 'JavaScript'],
-      isFeatured: true,
-      modules: [
-        {
-          id: 'm1',
-          title: 'Getting Started with HTML',
-          type: 'video',
-          content: 'https://www.youtube.com/embed/qz0aGYrrlhU',
-          duration: '15 min',
-          isCompleted: false
-        },
-        {
-          id: 'm2',
-          title: 'CSS Fundamentals',
-          type: 'text',
-          content: 'CSS (Cascading Style Sheets) is used to style HTML elements. Learn about selectors, properties, and values.',
-          duration: '10 min',
-          isCompleted: false
-        },
-        {
-          id: 'm3',
-          title: 'JavaScript Basics',
-          type: 'video',
-          content: 'https://www.youtube.com/embed/W6NZfCO5SIk',
-          duration: '20 min',
-          isCompleted: false
-        },
-        {
-          id: 'm4',
-          title: 'Module 1 Quiz',
-          type: 'quiz',
-          content: JSON.stringify({
-            questions: [
-              {
-                question: 'What does HTML stand for?',
-                options: ['Hyper Text Markup Language', 'High Tech Multi Language', 'Hyper Transfer Markup Language', 'Home Tool Markup Language'],
-                answer: 0
-              },
-              {
-                question: 'Which tag is used to create a hyperlink in HTML?',
-                options: ['<link>', '<a>', '<href>', '<url>'],
-                answer: 1
-              }
-            ]
-          }),
-          duration: '5 min',
-          isCompleted: false
-        }
-      ]
-    },
-    {
-      id: '2',
-      title: 'React for Beginners',
-      description: 'Master modern React development with hooks and functional components',
-      instructor: 'Michael Chen',
-      coverImage: '/placeholder.svg',
-      rating: 4.9,
-      studentsCount: 2845,
-      duration: '15 hours',
-      level: 'Intermediate',
-      category: 'Frontend',
-      tags: ['React', 'JavaScript', 'Frontend'],
-      isNew: true,
-      modules: [
-        {
-          id: 'm1',
-          title: 'Introduction to React',
-          type: 'video',
-          content: 'https://www.youtube.com/embed/SqcY0GlETPk',
-          duration: '15 min',
-          isCompleted: false
-        },
-        {
-          id: 'm2',
-          title: 'React Hooks',
-          type: 'text',
-          content: 'Hooks are functions that let you "hook into" React state and lifecycle features from function components.',
-          duration: '10 min',
-          isCompleted: false
-        }
-      ]
-    },
-    {
-      id: '3',
-      title: 'Advanced Data Structures & Algorithms',
-      description: 'Ace technical interviews with advanced DSA techniques',
-      instructor: 'Dr. Alan Turing',
-      coverImage: '/placeholder.svg',
-      rating: 4.7,
-      studentsCount: 1945,
-      duration: '20 hours',
-      level: 'Advanced',
-      category: 'Computer Science',
-      tags: ['DSA', 'Interviews', 'Problem Solving']
-    },
-    {
-      id: '4',
-      title: 'UI/UX Design Fundamentals',
-      description: 'Create beautiful and user-friendly interfaces that people love',
-      instructor: 'Emily Roberts',
-      coverImage: '/placeholder.svg',
-      rating: 4.6,
-      studentsCount: 3120,
-      duration: '18 hours',
-      level: 'All Levels',
-      category: 'Design',
-      tags: ['UI', 'UX', 'Design Thinking']
-    },
-    {
-      id: '5',
-      title: 'Python for Data Science',
-      description: 'Learn to analyze data and build visualizations with Python',
-      instructor: 'David Kim',
-      coverImage: '/placeholder.svg',
-      rating: 4.9,
-      studentsCount: 4250,
-      duration: '22 hours',
-      level: 'Intermediate',
-      category: 'Data Science',
-      tags: ['Python', 'Data Analysis', 'Visualization'],
-      isFeatured: true
-    },
-    {
-      id: '6',
-      title: 'Mobile App Development with Flutter',
-      description: 'Build beautiful cross-platform apps for iOS and Android',
-      instructor: 'Jessica Wong',
-      coverImage: '/placeholder.svg',
-      rating: 4.5,
-      studentsCount: 2100,
-      duration: '25 hours',
-      level: 'Intermediate',
-      category: 'Mobile',
-      tags: ['Flutter', 'Dart', 'Mobile Development'],
-      isNew: true
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+  
+  const fetchCourses = async () => {
+    setLoading(true);
+    try {
+      // Fetch courses with creator information
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          profiles:created_by (
+            id,
+            username
+          )
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      if (data) {
+        // Process the raw data into our CourseItem format
+        const processedCourses: CourseItem[] = await Promise.all(data.map(async (course) => {
+          // For each course, fetch its modules
+          const { data: moduleData, error: moduleError } = await supabase
+            .from('course_modules')
+            .select('*')
+            .eq('course_id', course.id)
+            .order('position', { ascending: true });
+          
+          if (moduleError) throw moduleError;
+          
+          // Count users who have enrolled (any progress record exists)
+          const { count, error: countError } = await supabase
+            .from('user_course_progress')
+            .select('user_id', { count: 'exact', head: true })
+            .eq('module_id', moduleData && moduleData.length > 0 ? moduleData[0].id : '');
+          
+          if (countError) console.error('Error counting students:', countError);
+          
+          // Process modules
+          const processedModules = moduleData ? moduleData.map(module => {
+            let moduleType: 'video' | 'text' | 'quiz' = 'text';
+            
+            if (module.youtube_url) {
+              moduleType = 'video';
+            }
+            
+            // Determine module duration based on content length
+            const getDuration = () => {
+              if (moduleType === 'video') return '15 min'; // Could be estimated based on video
+              if (moduleType === 'quiz') return '5 min';
+              // Text content - rough estimate based on reading time
+              const words = module.content?.split(' ').length || 0;
+              const minutes = Math.max(1, Math.ceil(words / 200)); // Assume 200 words per minute reading
+              return `${minutes} min`;
+            };
+            
+            return {
+              id: module.id,
+              title: module.title,
+              type: moduleType,
+              content: moduleType === 'video' ? module.youtube_url : module.content,
+              duration: getDuration(),
+              isCompleted: false // Will be updated after fetching user progress
+            };
+          }) : [];
+          
+          // Calculate course duration based on module durations
+          const totalMinutes = processedModules.reduce((total, module) => {
+            const minutes = parseInt(module.duration.split(' ')[0]) || 0;
+            return total + minutes;
+          }, 0);
+          
+          // Format hours and minutes
+          const formatDuration = (totalMinutes: number) => {
+            if (totalMinutes < 60) return `${totalMinutes} minutes`;
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            if (minutes === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
+            return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} min`;
+          };
+          
+          // Format the course data
+          return {
+            id: course.id,
+            title: course.title,
+            description: course.description,
+            instructor: {
+              id: course.profiles.id,
+              name: course.profiles.username || 'Anonymous'
+            },
+            coverImage: '/placeholder.svg', // Default placeholder
+            rating: 4.5, // Default rating
+            studentsCount: count || 0,
+            duration: formatDuration(totalMinutes),
+            level: 'All Levels', // Default level
+            category: course.tags?.[0] || 'General',
+            tags: course.tags || [],
+            isFeatured: false, // Could be determined by some criteria
+            isNew: new Date(course.created_at).getTime() > Date.now() - (7 * 24 * 60 * 60 * 1000), // New if created within last 7 days
+            modules: processedModules,
+            created_at: course.created_at
+          };
+        }));
+        
+        setCourses(processedCourses);
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load courses",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
   
   // Filter courses based on search query and category
-  const filteredCourses = sampleCourses.filter(course => {
+  const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           course.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           course.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -210,37 +204,256 @@ const ArenaPage: React.FC = () => {
   });
   
   // Get unique categories for the filter
-  const categories = ['all', ...Array.from(new Set(sampleCourses.map(course => course.category)))];
+  const categories = ['all', ...Array.from(new Set(courses.map(course => course.category)))];
   
   // Featured courses
-  const featuredCourses = sampleCourses.filter(course => course.isFeatured);
+  const featuredCourses = courses.filter(course => course.isFeatured);
   
   // New courses
-  const newCourses = sampleCourses.filter(course => course.isNew);
+  const newCourses = courses.filter(course => course.isNew);
   
-  const handleViewCourse = (course: CourseItem) => {
-    setSelectedCourse(course);
-    setIsViewingCourse(true);
+  const handleViewCourse = async (course: CourseItem) => {
+    try {
+      // If the user is logged in, fetch their progress for this course
+      if (user) {
+        // Fetch user progress for all modules of this course
+        const moduleIds = course.modules?.map(m => m.id) || [];
+        if (moduleIds.length > 0) {
+          const { data: progressData, error: progressError } = await supabase
+            .from('user_course_progress')
+            .select('*')
+            .eq('user_id', user.id)
+            .in('module_id', moduleIds);
+          
+          if (progressError) throw progressError;
+          
+          // Update the completed status of each module
+          if (progressData && course.modules) {
+            const updatedModules = course.modules.map(module => {
+              const progress = progressData.find(p => p.module_id === module.id);
+              return {
+                ...module,
+                isCompleted: progress ? progress.completed : false
+              };
+            });
+            
+            course = {
+              ...course,
+              modules: updatedModules
+            };
+          }
+        }
+      }
+      
+      setSelectedCourse(course);
+      setIsViewingCourse(true);
+      
+      // If there are modules, set the first one as active
+      if (course.modules && course.modules.length > 0) {
+        setActiveModuleId(course.modules[0].id);
+        // Fetch comments for the first module
+        fetchModuleComments(course.modules[0].id);
+      }
+    } catch (error) {
+      console.error('Error preparing course for viewing:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load course details",
+        variant: "destructive",
+      });
+    }
   };
   
-  const handleModuleCompletion = (moduleId: string) => {
-    if (!selectedCourse) return;
+  const fetchModuleComments = async (moduleId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('course_comments')
+        .select(`
+          id,
+          content,
+          created_at,
+          profiles:user_id (
+            id,
+            username
+          )
+        `)
+        .eq('module_id', moduleId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Format comments for display
+      const formattedComments = data.map(comment => ({
+        id: comment.id,
+        author: comment.profiles.username || 'Anonymous',
+        authorId: comment.profiles.id,
+        content: comment.content,
+        timeAgo: formatTimeAgo(new Date(comment.created_at)),
+        likes: 0 // This could be enhanced with a likes system
+      }));
+      
+      // Update the comments state
+      setModuleComments(prev => ({
+        ...prev,
+        [moduleId]: formattedComments
+      }));
+      
+    } catch (error) {
+      console.error('Error fetching module comments:', error);
+    }
+  };
+  
+  const formatTimeAgo = (date: Date) => {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
     
-    const updatedCourse = {
-      ...selectedCourse,
-      modules: selectedCourse.modules?.map(module => 
-        module.id === moduleId ? { ...module, isCompleted: true } : module
-      )
-    };
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + ' years ago';
     
-    setSelectedCourse(updatedCourse);
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + ' months ago';
     
-    // Check if all modules are completed
-    const allCompleted = updatedCourse.modules?.every(module => module.isCompleted);
-    if (allCompleted) {
-      // Trigger confetti for course completion
-      import('@/utils/confetti').then(({ triggerCourseCompletionConfetti }) => {
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + ' days ago';
+    
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + ' hours ago';
+    
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + ' minutes ago';
+    
+    return Math.floor(seconds) + ' seconds ago';
+  };
+  
+  const handleModuleCompletion = async (moduleId: string) => {
+    if (!selectedCourse || !user) return;
+    
+    try {
+      // First check if there's an existing progress record
+      const { data: existingProgress, error: checkError } = await supabase
+        .from('user_course_progress')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('module_id', moduleId)
+        .maybeSingle();
+      
+      if (checkError) throw checkError;
+      
+      if (existingProgress) {
+        // Update existing progress
+        const { error: updateError } = await supabase
+          .from('user_course_progress')
+          .update({
+            completed: true,
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', existingProgress.id);
+        
+        if (updateError) throw updateError;
+      } else {
+        // Create new progress record
+        const { error: insertError } = await supabase
+          .from('user_course_progress')
+          .insert({
+            user_id: user.id,
+            module_id: moduleId,
+            completed: true,
+            completed_at: new Date().toISOString()
+          });
+        
+        if (insertError) throw insertError;
+      }
+      
+      // Update the local state
+      const updatedCourse = {
+        ...selectedCourse,
+        modules: selectedCourse.modules?.map(module => 
+          module.id === moduleId ? { ...module, isCompleted: true } : module
+        )
+      };
+      
+      setSelectedCourse(updatedCourse);
+      
+      // Check if all modules are completed
+      const allCompleted = updatedCourse.modules?.every(module => module.isCompleted);
+      if (allCompleted) {
+        // Trigger confetti for course completion
         triggerCourseCompletionConfetti();
+        
+        // Update user profile stats
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            completed_courses: supabase.sql`completed_courses + 1`
+          })
+          .eq('id', user.id);
+        
+        if (profileError) {
+          console.error('Error updating profile stats:', profileError);
+        }
+        
+        toast({
+          title: "🎉 Course Completed!",
+          description: `Congratulations! You've completed "${selectedCourse.title}"`,
+        });
+      }
+    } catch (error) {
+      console.error('Error marking module as completed:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update progress",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !user || !activeModuleId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('course_comments')
+        .insert({
+          module_id: activeModuleId,
+          user_id: user.id,
+          content: commentText.trim()
+        })
+        .select(`
+          id,
+          content,
+          created_at,
+          profiles:user_id (
+            id,
+            username
+          )
+        `);
+      
+      if (error) throw error;
+      
+      // Format the new comment
+      const newComment: CourseComment = {
+        id: data[0].id,
+        author: data[0].profiles.username || 'You',
+        authorId: data[0].profiles.id,
+        content: data[0].content,
+        timeAgo: 'Just now',
+        likes: 0
+      };
+      
+      // Add the new comment to the comments list
+      setModuleComments(prev => ({
+        ...prev,
+        [activeModuleId]: [newComment, ...(prev[activeModuleId] || [])]
+      }));
+      
+      // Clear the comment input
+      setCommentText('');
+      
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        variant: "destructive",
       });
     }
   };
@@ -314,7 +527,7 @@ const ArenaPage: React.FC = () => {
             <div className="flex items-center mb-4">
               <div className="mr-4">
                 <p className="text-sm text-gray-500">Instructor</p>
-                <p className="font-medium">{selectedCourse.instructor}</p>
+                <p className="font-medium">{selectedCourse.instructor.name}</p>
               </div>
               <div className="mr-4">
                 <p className="text-sm text-gray-500">Level</p>
@@ -433,6 +646,68 @@ const ArenaPage: React.FC = () => {
                     })()}
                   </div>
                 )}
+                
+                {/* Module comments section */}
+                <div className="mt-6 pt-4 border-t">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-medium">Discussion</h4>
+                  </div>
+                  
+                  <div className="flex space-x-2 mb-4">
+                    <Textarea 
+                      placeholder={user ? "Add a comment..." : "Please log in to comment"}
+                      className="min-h-[80px]"
+                      value={activeModuleId === module.id ? commentText : ''}
+                      onChange={(e) => {
+                        setActiveModuleId(module.id);
+                        setCommentText(e.target.value);
+                      }}
+                      disabled={!user}
+                    />
+                    <Button 
+                      size="icon" 
+                      className="shrink-0 h-10 w-10 self-end"
+                      disabled={!user || !commentText.trim() || activeModuleId !== module.id}
+                      onClick={handleAddComment}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  {!user && (
+                    <p className="text-xs text-gray-500 mb-4 text-center">
+                      <a href="#" onClick={(e) => {
+                        e.preventDefault();
+                        document.dispatchEvent(new CustomEvent('open-auth-dialog'));
+                      }} className="text-brand-600 hover:underline">
+                        Log in
+                      </a> to join the discussion
+                    </p>
+                  )}
+                  
+                  <div className="space-y-4">
+                    {moduleComments[module.id]?.length > 0 ? (
+                      moduleComments[module.id].map(comment => (
+                        <div key={comment.id} className="flex space-x-3 text-sm">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback>{comment.author[0]}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <div className="bg-gray-50 p-3 rounded-lg">
+                              <div className="flex justify-between">
+                                <span className="font-semibold">{comment.author}</span>
+                                <span className="text-xs text-gray-500">{comment.timeAgo}</span>
+                              </div>
+                              <p className="mt-1">{comment.content}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center py-2 text-sm text-gray-500">No comments yet</p>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -495,7 +770,11 @@ const ArenaPage: React.FC = () => {
         </TabsList>
         
         <TabsContent value="all" className="mt-6">
-          {filteredCourses.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-10">
+              <p className="text-gray-500 mb-4">Loading courses...</p>
+            </div>
+          ) : filteredCourses.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredCourses.map(course => (
                 <CourseCard key={course.id} course={course} />
@@ -512,19 +791,37 @@ const ArenaPage: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="featured" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredCourses.map(course => (
-              <CourseCard key={course.id} course={course} />
-            ))}
-          </div>
+          {featuredCourses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredCourses.map(course => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-gray-500 mb-4">No featured courses yet</p>
+              <Button onClick={() => setIsCreatingCourse(true)}>
+                Create Your First Course
+              </Button>
+            </div>
+          )}
         </TabsContent>
         
         <TabsContent value="new" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {newCourses.map(course => (
-              <CourseCard key={course.id} course={course} />
-            ))}
-          </div>
+          {newCourses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {newCourses.map(course => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-gray-500 mb-4">No new courses available</p>
+              <Button onClick={() => setIsCreatingCourse(true)}>
+                Create a New Course
+              </Button>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -550,7 +847,12 @@ const ArenaPage: React.FC = () => {
               Create and share your knowledge with the community
             </DialogDescription>
           </DialogHeader>
-          <CourseForm onSuccess={() => setIsCreatingCourse(false)} />
+          <CourseForm 
+            onSuccess={() => {
+              setIsCreatingCourse(false);
+              fetchCourses(); // Refresh courses after creating one
+            }} 
+          />
         </DialogContent>
       </Dialog>
     </div>

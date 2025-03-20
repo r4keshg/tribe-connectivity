@@ -7,8 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash, Youtube, FileText, Check } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { triggerCreationConfetti } from '@/utils/confetti';
 
-const CourseForm: React.FC = () => {
+interface CourseFormProps {
+  onSuccess?: () => void;
+}
+
+const CourseForm: React.FC<CourseFormProps> = ({ onSuccess }) => {
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -19,6 +28,7 @@ const CourseForm: React.FC = () => {
     youtubeUrl: '',
     quizQuestions: [] as {question: string, options: string[], correctAnswer: number}[]
   }]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddTag = () => {
     if (currentTag.trim() && !tags.includes(currentTag.trim())) {
@@ -78,19 +88,171 @@ const CourseForm: React.FC = () => {
     setModules(updatedModules);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const validateYoutubeUrl = (url: string): string => {
+    if (!url.trim()) return '';
+    
+    // Extract video ID from various YouTube URL formats
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    
+    if (match && match[2].length === 11) {
+      // Return the proper embed URL
+      return `https://www.youtube.com/embed/${match[2]}`;
+    }
+    
+    // If URL doesn't match YouTube format, return as is (will be validated on the frontend)
+    return url;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // In a real application, you would send this to your API
-    const courseData = {
-      title,
-      description,
-      tags,
-      modules
-    };
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to create courses",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    console.log('Course created:', courseData);
-    // You would typically reset the form here or redirect
+    // Basic validation
+    if (!title.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a course title",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!description.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a course description",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (tags.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one tag",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (modules.some(module => !module.title.trim())) {
+      toast({
+        title: "Error",
+        description: "All modules must have a title",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      // 1. Insert the course
+      const { data: courseData, error: courseError } = await supabase
+        .from('courses')
+        .insert({
+          title,
+          description,
+          tags,
+          created_by: user.id
+        })
+        .select();
+      
+      if (courseError) throw courseError;
+      
+      const courseId = courseData[0].id;
+      
+      // 2. Insert the modules
+      for (let i = 0; i < modules.length; i++) {
+        const module = modules[i];
+        
+        // Process YouTube URL to ensure it's in embed format
+        const processedYoutubeUrl = validateYoutubeUrl(module.youtubeUrl);
+        
+        // Insert module
+        const { data: moduleData, error: moduleError } = await supabase
+          .from('course_modules')
+          .insert({
+            course_id: courseId,
+            title: module.title,
+            content: module.content,
+            youtube_url: processedYoutubeUrl,
+            position: i + 1
+          })
+          .select();
+        
+        if (moduleError) throw moduleError;
+        
+        const moduleId = moduleData[0].id;
+        
+        // Insert quiz questions for this module
+        if (module.quizQuestions.length > 0) {
+          const quizQuestionsData = module.quizQuestions.map(q => ({
+            module_id: moduleId,
+            question: q.question,
+            options: JSON.stringify(q.options),
+            correct_answer: q.correctAnswer
+          }));
+          
+          const { error: quizError } = await supabase
+            .from('module_quiz_questions')
+            .insert(quizQuestionsData);
+          
+          if (quizError) throw quizError;
+        }
+      }
+      
+      // Success! Show toast and confetti
+      toast({
+        title: "Course Created",
+        description: "Your course has been published successfully",
+      });
+      
+      triggerCreationConfetti();
+      
+      // Reset form
+      setTitle('');
+      setDescription('');
+      setTags([]);
+      setCurrentTag('');
+      setModules([{ 
+        title: '', 
+        content: '',
+        youtubeUrl: '',
+        quizQuestions: []
+      }]);
+      
+      // Call the success callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+      
+    } catch (error: any) {
+      console.error('Error creating course:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create course",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && currentTag) {
+      e.preventDefault();
+      handleAddTag();
+    }
   };
 
   return (
@@ -130,6 +292,7 @@ const CourseForm: React.FC = () => {
                 placeholder="Add tags (e.g., 'javascript', 'web development')" 
                 value={currentTag}
                 onChange={(e) => setCurrentTag(e.target.value)}
+                onKeyDown={handleKeyDown}
                 className="flex-1 mr-2"
               />
               <Button type="button" onClick={handleAddTag} variant="outline">
@@ -332,7 +495,9 @@ const CourseForm: React.FC = () => {
           Once published, your course will be available for students to enroll.
         </p>
         <div className="flex gap-4">
-          <Button type="submit" className="flex-1">Publish Course</Button>
+          <Button type="submit" className="flex-1" disabled={isSubmitting}>
+            {isSubmitting ? "Publishing..." : "Publish Course"}
+          </Button>
           <Button type="button" variant="outline">Save as Draft</Button>
         </div>
       </div>
