@@ -58,3 +58,27 @@ export const triggerAchievementConfetti = () => {
     confettiNumber: 40
   });
 };
+
+// Trigger confetti for login
+export const triggerLoginConfetti = () => {
+  const confetti = getConfetti();
+  
+  confetti.addConfetti({
+    confettiColors: [
+      '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'
+    ],
+    confettiRadius: 4,
+    confettiNumber: 80
+  });
+};
+
+// Trigger confetti for odyssey
+export const triggerOdysseyConfetti = () => {
+  const confetti = getConfetti();
+  
+  confetti.addConfetti({
+    emojis: ['🚀', '🌟', '💫', '✨', '🔥'],
+    emojiSize: 45,
+    confettiNumber: 35
+  });
+};
